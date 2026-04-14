@@ -37,6 +37,8 @@ metadata:
 | `reply-comment` | 回复指定评论或用户 |
 | `like-feed` | 点赞 / 取消点赞 |
 | `favorite-feed` | 收藏 / 取消收藏 |
+| `dm-record` | 标定私信自动化的桌面坐标 |
+| `dm-send` | 发送私信（GUI自动化） |
 
 ---
 
@@ -49,6 +51,7 @@ metadata:
 2. 用户要求"回复评论 / 回复 TA"：执行回复评论流程。
 3. 用户要求"点赞 / 取消点赞"：执行点赞流程。
 4. 用户要求"收藏 / 取消收藏"：执行收藏流程。
+5. 用户要求"发私信 / 私信 TA"：执行私信发送流程。
 
 ## 必做约束
 
@@ -123,6 +126,22 @@ python scripts/cli.py favorite-feed \
   --xsec-token XSEC_TOKEN \
   --unfavorite
 ```
+
+### 发送私信（GUI自动化）
+
+由于小红书部分私密API限制，私信功能使用独有的 Mac GUI 屏幕点击自动化完成。
+
+```bash
+# 标定坐标（第一次使用时必须执行一次）
+python scripts/cli.py dm-record
+
+# GUI 发送私信
+python scripts/cli.py dm-send \
+  --account "12345678" \
+  --message "你好！"
+```
+
+> **注意：** 必须确保系统已经给予执行终端 **屏幕录制** 和 **辅助功能** 权限。
 
 ## 互动策略建议
 

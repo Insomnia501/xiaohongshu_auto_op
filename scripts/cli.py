@@ -697,6 +697,32 @@ def cmd_publish_video(args: argparse.Namespace) -> None:
         browser.close()
 
 
+def cmd_generate_image(args: argparse.Namespace) -> None:
+    """使用 SeeDream 5.0 生成图片。"""
+    from xhs.creative import generate_seedream_image
+    try:
+        res = generate_seedream_image(
+            prompt=args.prompt,
+            size=args.size,
+            model=args.model,
+            output_dir=args.output_dir
+        )
+        _output(res)
+    except Exception as e:
+        _output({"success": False, "error": str(e)}, exit_code=2)
+
+def cmd_dm_record(args: argparse.Namespace) -> None:
+    """标定 Mac GUI 自动化私信的坐标。"""
+    from xhs.mac_dm import record_coords
+    record_coords()
+    _output({"success": True, "status": "标定已保存"})
+
+def cmd_dm_send(args: argparse.Namespace) -> None:
+    """使用 Mac GUI 自动化发送私信。"""
+    from xhs.mac_dm import run_dm
+    res = run_dm(args.account, args.message)
+    _output(res, exit_code=0 if res.get("success") else 2)
+
 # ─── 参数解析 ──────────────────────────────────────────────────────────────────
 
 
@@ -877,6 +903,24 @@ def build_parser() -> argparse.ArgumentParser:
     sub = subparsers.add_parser("next-step", help="点击下一步 + 填写描述")
     sub.add_argument("--content-file", required=True)
     sub.set_defaults(func=cmd_next_step)
+
+    # generate-image
+    sub = subparsers.add_parser("generate-image", help="使用 SeeDream 5.0 生成图片")
+    sub.add_argument("--prompt", required=True, help="图片的 Prompt 描述词")
+    sub.add_argument("--model", default="doubao-seedream-5-0-260128", help="模型Endpoint或ID")
+    sub.add_argument("--output-dir", default="images", help="图片保存目录")
+    sub.add_argument("--size", default="1024x1024", help="图片分辨率大小")
+    sub.set_defaults(func=cmd_generate_image)
+
+    # dm-record
+    sub = subparsers.add_parser("dm-record", help="标定 Mac GUI 自动化私信的坐标")
+    sub.set_defaults(func=cmd_dm_record)
+
+    # dm-send
+    sub = subparsers.add_parser("dm-send", help="使用 Mac GUI 发送私信")
+    sub.add_argument("--account", required=True, help="目标小红书号")
+    sub.add_argument("--message", required=True, help="消息内容")
+    sub.set_defaults(func=cmd_dm_send)
 
     return parser
 

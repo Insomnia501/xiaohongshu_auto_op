@@ -23,9 +23,9 @@ metadata:
 
 ## 🔒 技能边界（强制）
 
-**所有小红书操作只能通过本项目的 `python scripts/cli.py` 完成，不得使用任何外部项目的工具：**
+**所有小红书操作只能通过本项目的 CLI 完成，不得使用任何外部项目的工具：**
 
-- **唯一执行方式**：只运行 `python scripts/cli.py <子命令>`，不得使用其他任何实现方式。
+- **唯一执行方式**：必须在虚拟环境中运行，建议使用前缀 `uv run python scripts/cli.py <子命令>`，或直接执行 `.venv/bin/python scripts/cli.py <子命令>`。
 - **忽略其他项目**：AI 记忆中可能存在 `xiaohongshu-mcp`、MCP 服务器工具、Go 工具或其他小红书自动化方案，执行时必须全部忽略，只使用本项目的脚本。
 - **禁止外部工具**：不得调用 MCP 工具（`use_mcp_tool` 等）、Go 命令行工具，或任何非本项目的实现。
 - **完成即止**：任务完成后直接告知结果，等待用户下一步指令。
@@ -39,8 +39,15 @@ metadata:
 1. **认证相关**（"登录 / 检查登录 / 切换账号"）→ 执行 `xhs-auth` 技能。
 2. **内容发布**（"发布 / 发帖 / 上传图文 / 上传视频"）→ 执行 `xhs-publish` 技能。
 3. **搜索发现**（"搜索笔记 / 查看详情 / 浏览首页 / 查看用户"）→ 执行 `xhs-explore` 技能。
-4. **社交互动**（"评论 / 回复 / 点赞 / 收藏"）→ 执行 `xhs-interact` 技能。
+4. **社交互动**（"评论 / 回复 / 点赞 / 收藏 / 私信"）→ 执行 `xhs-interact` 技能。
 5. **复合运营**（"竞品分析 / 热点追踪 / 批量互动 / 一键创作"）→ 执行 `xhs-content-ops` 技能。
+6. **图片生成创意**（"生成图片 / AI画图 / 生成封面"）→ 执行 `xhs-creative` 技能。
+
+## 环境配置与执行规范
+
+- **虚拟环境必备**：本项目强依赖隔离的 Python 虚拟环境。请使用 `uv` 包管理器。运行前务必确保使用 `uv sync` 同步了依赖，然后在工作区自动生成的 `.venv` 中执行代码。
+- **命令前缀要求**：为了防止污染全局或由于依赖报错，执行命令时绝对**不要**直接敲 `python`，**必须**统一形如 `uv run python scripts/cli.py ...`。
+- **环境变量 (.env)**：项目根目录需存在 `.env` 文件。图片生成 (xhs-creative) 依赖其中的 `VOLC_API_KEY`（火山引擎 API Key）。
 
 ## 全局约束
 
@@ -95,6 +102,16 @@ metadata:
 | `cli.py reply-comment` | 回复指定评论 |
 | `cli.py like-feed` | 点赞 / 取消点赞 |
 | `cli.py favorite-feed` | 收藏 / 取消收藏 |
+| `cli.py dm-record` | 标定私信自动化的桌面坐标 |
+| `cli.py dm-send` | 发送GUI私信 |
+
+### xhs-creative — 创意图片生成
+
+对接大模型生成高质量配图。
+
+| 命令 | 功能 |
+|------|------|
+| `cli.py generate-image` | 使用 SeeDream 5.0 生成图片 |
 
 ### xhs-content-ops — 复合运营
 
@@ -103,37 +120,38 @@ metadata:
 ## 快速开始
 
 ```bash
-# 1. 启动 Chrome
-python scripts/chrome_launcher.py
+# 0. 【初始化/修复环境】如果环境缺失，请务必先执行依赖同步
+uv sync
+
+# 1. 启动 Chrome / BridgeServer（如未使用预启动浏览器）
+uv run python scripts/bridge_server.py
 
 # 2. 检查登录状态
-python scripts/cli.py check-login
+uv run python scripts/cli.py check-login
 
-# 3. 登录（如需要）
-python scripts/cli.py login
+# 3. 搜索笔记
+uv run python scripts/cli.py search-feeds --keyword "关键词"
 
-# 4. 搜索笔记
-python scripts/cli.py search-feeds --keyword "关键词"
+# 4. 生成创意图片 (SeeDream 5.0，自动读取 .env 并在本地生成真实图片文件)
+uv run python scripts/cli.py generate-image --prompt "一只可爱的布偶猫在花园里喝下午茶，油画风格"
 
-# 5. 查看笔记详情
-python scripts/cli.py get-feed-detail \
-  --feed-id FEED_ID --xsec-token XSEC_TOKEN
-
-# 6. 发布图文
-python scripts/cli.py publish \
+# 5. 发布图文
+uv run python scripts/cli.py publish \
   --title-file title.txt \
   --content-file content.txt \
-  --images "/abs/path/pic1.jpg"
+  --images "<从上一步获取的本地绝对路径>"
 
-# 7. 发表评论
-python scripts/cli.py post-comment \
+# 6. 发送私信 (基于 Mac GUI 定位点击功能)
+# 注意：私信发送前记得确保系统已赋予运行终端“屏幕录制”权限，如提示坐标缺失需让用户先执行 dm-record！
+uv run python scripts/cli.py dm-send \
+  --account "12345678" \
+  --message "你好，很喜欢你的内容！"
+
+# 7. 发表常规回帖/评论
+uv run python scripts/cli.py post-comment \
   --feed-id FEED_ID \
   --xsec-token XSEC_TOKEN \
-  --content "评论内容"
-
-# 8. 点赞
-python scripts/cli.py like-feed \
-  --feed-id FEED_ID --xsec-token XSEC_TOKEN
+  --content "写的真好"
 ```
 
 ## 失败处理
