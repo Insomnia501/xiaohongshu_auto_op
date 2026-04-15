@@ -157,6 +157,81 @@ uv run python scripts/cli.py post-comment \
 ## 失败处理
 
 - **未登录**：提示用户执行登录流程（xhs-auth）。
-- **Chrome 未启动**：使用 `chrome_launcher.py` 启动浏览器。
+- **Chrome 未启动**：account_manager 会在需要时自动启动对应 Profile 的 Chrome。
 - **操作超时**：检查网络连接，适当增加等待时间。
 - **频率限制**：降低操作频率，增大间隔。
+
+---
+
+## 多账号支持
+
+本项目支持配置多个小红书账号，每个账号使用独立的 Chrome Profile，互不干扰。
+
+### 账号配置文件 `accounts.json`
+
+账号信息保存在项目根目录的 `accounts.json`（已加入 `.gitignore`，不会提交）：
+
+```json
+{
+  "accounts": {
+    "account_a": {
+      "nickname": "主号",
+      "profile_dir": ".profiles/account_a",
+      "bridge_port": 9334
+    },
+    "account_b": {
+      "nickname": "备用号1",
+      "profile_dir": ".profiles/account_b",
+      "bridge_port": 9335
+    }
+  },
+  "default": "account_a"
+}
+```
+
+### 账号管理器 `account_manager.py`
+
+```bash
+# 添加新账号（自动分配端口，从 9334 开始）
+uv run python scripts/account_manager.py add --account account_a --nickname "主号"
+
+# 初始化账号（启动专属 Chrome 引导登录小红书）
+uv run python scripts/account_manager.py init --account account_a
+
+# 列出所有账号及 Bridge 运行状态
+uv run python scripts/account_manager.py list
+
+# 查看某账号详细状态
+uv run python scripts/account_manager.py status --account account_a
+
+# 设置默认账号（不指定 --account 时使用的账号）
+uv run python scripts/account_manager.py set-default --account account_a
+```
+
+### CLI 指定账号执行操作
+
+在所有 `cli.py` 命令前加上全局参数 `--account <账号ID>` 即可：
+
+```bash
+# 以 account_a 的身份发布笔记
+uv run python scripts/cli.py --account account_a publish \
+  --title-file title.txt --content-file content.txt --images "/path/to/img.jpg"
+
+# 以 account_b 的身份搜索
+uv run python scripts/cli.py --account account_b search-feeds --keyword "露营"
+
+# 以 account_a 的身份评论
+uv run python scripts/cli.py --account account_a post-comment \
+  --feed-id FEED_ID --xsec-token TOKEN --content "写得太好了"
+```
+
+> **账号切换规则：**
+> - 指定 `--account`：系统在 `accounts.json` 查找对应 bridge 端口，并在需要时以专属 Chrome Profile 启动浏览器。
+> - 不指定 `--account`：系统使用 `accounts.json` 中 `"default"` 字段对应的账号。
+> - `accounts.json` 不存在：系统回退到默认的 9333 端口（兼容旧单账号模式，向下兼容）。
+
+> [!IMPORTANT]
+> `--account` 是 `cli.py` 的**全局参数**，必须放在子命令**之前**：
+> `uv run python scripts/cli.py --account account_a publish ...` ✅
+> `uv run python scripts/cli.py publish --account account_a ...` ❌（这里的 --account 会被误解为 dm-send 的目标小红书号）
+

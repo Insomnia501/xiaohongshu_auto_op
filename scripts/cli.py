@@ -66,7 +66,7 @@ class _DummyBrowser:
         pass
 
 
-def _ensure_bridge_ready(bridge_url: str) -> None:
+def _ensure_bridge_ready(bridge_url: str, profile_dir: str | None = None) -> None:
     """确保 bridge server 在运行、浏览器扩展已连接。若未就绪则自动启动。"""
     import subprocess
     import time
@@ -80,11 +80,13 @@ def _ensure_bridge_ready(bridge_url: str) -> None:
     if not page.is_server_running():
         logger.info("Bridge server 未运行，正在启动...")
         scripts_dir = Path(__file__).parent
+        # 解析端口
+        port = int(bridge_url.split(":")[-1]) if ":" in bridge_url else 9333
         kwargs: dict = {}
         if sys.platform == "win32":
             kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
         subprocess.Popen(
-            [sys.executable, str(scripts_dir / "bridge_server.py")],
+            [sys.executable, str(scripts_dir / "bridge_server.py"), "--port", str(port)],
             **kwargs,
         )
         for _ in range(10):
@@ -101,7 +103,7 @@ def _ensure_bridge_ready(bridge_url: str) -> None:
         return
 
     logger.info("浏览器扩展未连接，正在打开 Chrome...")
-    _open_chrome()
+    _open_chrome(profile_dir=profile_dir)
 
     for _ in range(20):
         time.sleep(1)
@@ -111,10 +113,26 @@ def _ensure_bridge_ready(bridge_url: str) -> None:
     logger.warning("等待扩展连接超时，请确认 Chrome 已安装 XHS Bridge 扩展并已启用")
 
 
-def _open_chrome() -> None:
-    """尝试启动 Chrome 浏览器。"""
+def _open_chrome(profile_dir: str | None = None) -> None:
+    """尝试启动 Chrome 浏览器。若提供 profile_dir，则以独立 Profile 启动。"""
     import subprocess
 
+    url = "https://www.xiaohongshu.com/"
+
+    # macOS
+    chrome_mac = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    if os.path.exists(chrome_mac):
+        cmd = [chrome_mac, "--no-first-run", "--no-default-browser-check"]
+        if profile_dir:
+            from pathlib import Path
+            abs_profile = str(Path(profile_dir).absolute())
+            cmd.append(f"--user-data-dir={abs_profile}")
+            logger.info("以独立 Profile 启动 Chrome: %s", abs_profile)
+        cmd.append(url)
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return
+
+    # Windows
     candidates = [
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -122,11 +140,22 @@ def _open_chrome() -> None:
     ]
     for path in candidates:
         if os.path.exists(path):
-            subprocess.Popen([path])
+            cmd = [path]
+            if profile_dir:
+                from pathlib import Path
+                cmd.append(f"--user-data-dir={str(Path(profile_dir).absolute())}")
+            cmd.append(url)
+            subprocess.Popen(cmd)
             return
-    # macOS / Linux fallback
-    for cmd in [["open", "-a", "Google Chrome"], ["google-chrome"], ["chromium-browser"]]:
+
+    # Linux fallback
+    for cmd_base in [["google-chrome"], ["chromium-browser"]]:
         try:
+            cmd = cmd_base[:]
+            if profile_dir:
+                from pathlib import Path
+                cmd.append(f"--user-data-dir={str(Path(profile_dir).absolute())}")
+            cmd.append(url)
             subprocess.Popen(cmd)
             return
         except FileNotFoundError:
@@ -139,7 +168,8 @@ def _connect(args: argparse.Namespace):
     from xhs.bridge import BridgePage
 
     bridge_url = getattr(args, "bridge_url", "ws://localhost:9333")
-    _ensure_bridge_ready(bridge_url)
+    profile_dir = getattr(args, "_profile_dir", None)
+    _ensure_bridge_ready(bridge_url, profile_dir=profile_dir)
     return _DummyBrowser(), BridgePage(bridge_url)
 
 
@@ -736,6 +766,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="ws://localhost:9333",
         help="Bridge server WebSocket 地址 (default: ws://localhost:9333)",
     )
+    parser.add_argument(
+        "--account",
+        default=None,
+        help="指定使用的小红书账号ID（需在 accounts.json 中配置）。优先于 --bridge-url。",
+    )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -925,9 +960,61 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# ─── dm-send 中的 --account 与全局 --account 冲突防护 ───────────────────────
+# dm-send 自己有个 --account 参数（指目标小红书号），这里通过子命令名区分，
+# 全局 --account 通过 args._xhs_account 传递（避免覆盖 dm-send 的 account 参数）
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+
+    # ── 解析 --account 全局参数，映射到正确的 bridge_url 和 profile ──
+    xhs_account = getattr(args, "account", None)
+    # dm-send 的 --account 是目标用户号，不是这里的账号ID，需要特判
+    if args.command == "dm-send":
+        xhs_account = None  # dm-send 的 account 是目标号，不做账号切换
+
+    if xhs_account:
+        from pathlib import Path
+        accounts_file = Path(__file__).parent.parent / "accounts.json"
+        if accounts_file.exists():
+            import json as _json
+            with open(accounts_file, encoding="utf-8") as f:
+                accounts_config = _json.load(f)
+            account_cfg = accounts_config.get("accounts", {}).get(xhs_account)
+            if account_cfg:
+                port = account_cfg["bridge_port"]
+                args.bridge_url = f"ws://localhost:{port}"
+                # 传递 profile_dir 给 _connect / _ensure_bridge_ready
+                args._profile_dir = str(
+                    Path(__file__).parent.parent / account_cfg["profile_dir"]
+                )
+                logger.info("切换到账号 '%s'（bridge: ws://localhost:%d）", xhs_account, port)
+            else:
+                _output({"success": False, "error": f"账号 '{xhs_account}' 未在 accounts.json 中找到"}, exit_code=2)
+        else:
+            _output({"success": False, "error": "未找到 accounts.json，请先运行 account_manager.py add"}, exit_code=2)
+    elif not hasattr(args, "_profile_dir"):
+        # 无 --account 参数，尝试加载并使用默认账号
+        from pathlib import Path
+        accounts_file = Path(__file__).parent.parent / "accounts.json"
+        if accounts_file.exists():
+            import json as _json
+            with open(accounts_file, encoding="utf-8") as f:
+                accounts_config = _json.load(f)
+            default_name = accounts_config.get("default", "")
+            if default_name and args.command != "dm-send":
+                account_cfg = accounts_config.get("accounts", {}).get(default_name)
+                if account_cfg:
+                    # 仅在用户没有手动指定 bridge_url 时，才使用默认账号的端口
+                    if args.bridge_url == "ws://localhost:9333":
+                        port = account_cfg["bridge_port"]
+                        args.bridge_url = f"ws://localhost:{port}"
+                        args._profile_dir = str(
+                            Path(__file__).parent.parent / account_cfg["profile_dir"]
+                        )
+                        logger.info("使用默认账号 '%s'", default_name)
 
     try:
         args.func(args)
