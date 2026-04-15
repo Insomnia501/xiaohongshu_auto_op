@@ -35,7 +35,7 @@ def record_coords():
     for key, description in locations:
         input(f"\n👉 {description}\n准备好了吗？准备好请按回车键开始倒计时...")
         print("开始倒计时：")
-        for i in range(3, 0, -1):
+        for i in range(10, 0, -1):
             sys.stdout.write(f"\r {i} ...")
             sys.stdout.flush()
             time.sleep(1)
