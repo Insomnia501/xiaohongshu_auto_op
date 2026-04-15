@@ -96,21 +96,26 @@ def find_chrome() -> str | None:
 
 
 def launch_chrome(profile_dir: str | Path, url: str = "https://www.xiaohongshu.com/") -> subprocess.Popen:
-    """以指定 Profile 目录启动 Chrome，并打开指定 URL。"""
+    """以指定 Profile 目录启动 Chrome，并自动加载本地 XHS Bridge 扩展。"""
     chrome = find_chrome()
     if not chrome:
         print("❌ 找不到 Chrome，请确认已安装 Google Chrome。")
         sys.exit(1)
 
     abs_profile = str(Path(profile_dir).absolute())
+    # 本项目的扩展源码目录（始终随代码一起，无需手动安装）
+    extension_dir = str(PROJECT_ROOT / "extension")
+
     cmd = [
         chrome,
         f"--user-data-dir={abs_profile}",
+        f"--load-extension={extension_dir}",
         "--no-first-run",
         "--no-default-browser-check",
         url,
     ]
-    print(f"🚀 正在启动独立 Chrome (Profile: {abs_profile})...")
+    print(f"🚀 正在启动独立 Chrome (Profile: {abs_profile})")
+    print(f"   自动加载扩展: {extension_dir}")
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return proc
 

@@ -123,9 +123,13 @@ def _open_chrome(profile_dir: str | None = None) -> None:
     chrome_mac = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     if os.path.exists(chrome_mac):
         cmd = [chrome_mac, "--no-first-run", "--no-default-browser-check"]
+        # 始终加载本地扩展目录，无论是新 Profile 还是默认 Profile
+        from pathlib import Path as _Path
+        extension_dir = str(_Path(__file__).parent.parent / "extension")
+        if os.path.isdir(extension_dir):
+            cmd.append(f"--load-extension={extension_dir}")
         if profile_dir:
-            from pathlib import Path
-            abs_profile = str(Path(profile_dir).absolute())
+            abs_profile = str(_Path(profile_dir).absolute())
             cmd.append(f"--user-data-dir={abs_profile}")
             logger.info("以独立 Profile 启动 Chrome: %s", abs_profile)
         cmd.append(url)
