@@ -176,12 +176,12 @@ uv run python scripts/cli.py post-comment \
   "accounts": {
     "account_a": {
       "nickname": "主号",
-      "profile_dir": ".profiles/account_a",
+      "profile_dir": "profiles/account_a",
       "bridge_port": 9334
     },
     "account_b": {
       "nickname": "备用号1",
-      "profile_dir": ".profiles/account_b",
+      "profile_dir": "profiles/account_b",
       "bridge_port": 9335
     }
   },
@@ -195,7 +195,7 @@ uv run python scripts/cli.py post-comment \
 # 添加新账号（自动分配端口，从 9334 开始）
 uv run python scripts/account_manager.py add --account account_a --nickname "主号"
 
-# 初始化账号（启动专属 Chrome 引导登录小红书）
+# 初始化账号（自动生成专属插件、修改端口、启动专属 Chrome 引导安装插件并登录）
 uv run python scripts/account_manager.py init --account account_a
 
 # 列出所有账号及 Bridge 运行状态
@@ -225,13 +225,13 @@ uv run python scripts/cli.py --account account_a post-comment \
   --feed-id FEED_ID --xsec-token TOKEN --content "写得太好了"
 ```
 
-> **账号切换规则：**
+> **账号切换规则与并行原理：**
 > - 指定 `--account`：系统在 `accounts.json` 查找对应 bridge 端口，并在需要时以专属 Chrome Profile 启动浏览器。
-> - 不指定 `--account`：系统使用 `accounts.json` 中 `"default"` 字段对应的账号。
-> - `accounts.json` 不存在：系统回退到默认的 9333 端口（兼容旧单账号模式，向下兼容）。
+> - 未指定 `--account`：系统使用 `accounts.json` 中 `"default"` 字段对应的账号。
+> - **真·隔离并行**：`account_manager.py init` 会自动将 `extension/` 模板复制到 `profiles/<账号名>/extension/` 下，并自动修改代码中的 WebSocket 端口号。这使得各账号拥有完全独立的浏览器进程、通讯端口及插件，实现多开同时发帖互不干扰。
 
 > [!IMPORTANT]
 > `--account` 是 `cli.py` 的**全局参数**，必须放在子命令**之前**：
 > `uv run python scripts/cli.py --account account_a publish ...` ✅
-> `uv run python scripts/cli.py publish --account account_a ...` ❌（这里的 --account 会被误解为 dm-send 的目标小红书号）
+> `uv run python scripts/cli.py publish --account account_a ...` ❌（这里的 --account 会被当成子命令的参数而引发错误）
 
