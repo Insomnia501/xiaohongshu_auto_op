@@ -217,6 +217,6 @@ comment.txt
 
 # Ralph Loop state
 .claude/.ralph-loop.local.md
-.profiles/
+profiles/
 accounts.json
 mac_coords.json

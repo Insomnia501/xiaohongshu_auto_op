@@ -12,13 +12,29 @@ from __future__ import annotations
 import base64
 import json
 import os
+import socket
 from typing import Any
+from urllib.parse import urlparse
 
 import websockets.sync.client as ws_client
 
 from .errors import CDPError, ElementNotFoundError
 
 BRIDGE_URL = "ws://localhost:9333"
+
+
+def _direct_ws_connect(url: str, **kwargs):
+    """
+    直接使用 TCP socket 连接指定 URL，完全绕过系统代理设置。
+    专针对 localhost/127.0.0.1 的 bridge server 连接，
+    避免 SOCKS/HTTP 代理导致 websockets 报错。
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or 9333
+    timeout = kwargs.pop("open_timeout", 10)
+    sock = socket.create_connection((host, port), timeout=timeout)
+    return ws_client.connect(url, sock=sock, **kwargs)
 
 
 class BridgePage:
@@ -35,11 +51,11 @@ class BridgePage:
         if params:
             msg["params"] = params
         try:
-            with ws_client.connect(self._bridge_url, max_size=50 * 1024 * 1024) as ws:
+            with _direct_ws_connect(self._bridge_url, max_size=50 * 1024 * 1024) as ws:
                 ws.send(json.dumps(msg, ensure_ascii=False))
                 raw = ws.recv(timeout=90)
         except OSError as e:
-            raise CDPError(f"无法连接到 bridge server（ws://localhost:9333）: {e}") from e
+            raise CDPError(f"无法连接到 bridge server（{self._bridge_url}）: {e}") from e
 
         resp = json.loads(raw)
         if "error" in resp and resp["error"]:
@@ -191,7 +207,7 @@ class BridgePage:
     def is_server_running(self) -> bool:
         """检查 bridge server 是否在运行（不需要 extension 已连接）。"""
         try:
-            with ws_client.connect(self._bridge_url, open_timeout=3) as ws:
+            with _direct_ws_connect(self._bridge_url, open_timeout=3) as ws:
                 ws.send(json.dumps({"role": "cli", "method": "ping_server"}))
                 raw = ws.recv(timeout=5)
             resp = json.loads(raw)
@@ -202,7 +218,7 @@ class BridgePage:
     def is_extension_connected(self) -> bool:
         """检查浏览器扩展是否已连接到 bridge server。"""
         try:
-            with ws_client.connect(self._bridge_url, open_timeout=3) as ws:
+            with _direct_ws_connect(self._bridge_url, open_timeout=3) as ws:
                 ws.send(json.dumps({"role": "cli", "method": "ping_server"}))
                 raw = ws.recv(timeout=5)
             resp = json.loads(raw)
