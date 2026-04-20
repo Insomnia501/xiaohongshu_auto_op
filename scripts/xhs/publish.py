@@ -189,12 +189,13 @@ def _click_publish_tab(page: Page, tab_name: str) -> None:
                     const titleSpan = tab.querySelector('span.title');
                     const tabText = titleSpan ? titleSpan.textContent.trim() : tab.textContent.trim();
                     if (tabText === {json.dumps(tab_name)}) {{
+                        if (tab.hasAttribute('button-hp-installed')) continue;
                         const rect = tab.getBoundingClientRect();
                         const style = window.getComputedStyle(tab);
                         // 跳过隐藏或被移出视口的元素
                         if (rect.width === 0 || rect.height === 0) continue;
                         if (rect.left < 0 || rect.top < 0) continue;
-                        if (style.display === 'none' || style.visibility === 'hidden') continue;
+                        if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) < 0.01) continue;
                         const x = rect.left + rect.width / 2;
                         const y = rect.top + rect.height / 2;
                         const target = document.elementFromPoint(x, y);
@@ -210,11 +211,12 @@ def _click_publish_tab(page: Page, tab_name: str) -> None:
                 const allElements = document.querySelectorAll('*');
                 for (const el of allElements) {{
                     if (el.children.length === 0 && el.textContent.trim() === {json.dumps(tab_name)}) {{
+                        if (el.hasAttribute('button-hp-installed')) continue;
                         const rect = el.getBoundingClientRect();
                         const style = window.getComputedStyle(el);
                         if (rect.width === 0 || rect.height === 0) continue;
                         if (rect.left < 0 || rect.top < 0) continue;
-                        if (style.display === 'none' || style.visibility === 'hidden') continue;
+                        if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) < 0.01) continue;
                         el.click();
                         return 'clicked';
                     }}
