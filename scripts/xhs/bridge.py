@@ -71,10 +71,13 @@ class BridgePage:
         self._call("wait_for_load", {"timeout": int(timeout * 1000)})
 
     def wait_dom_stable(self, timeout: float = 10.0, interval: float = 0.5) -> None:
-        self._call("wait_dom_stable", {
-            "timeout": int(timeout * 1000),
-            "interval": int(interval * 1000),
-        })
+        self._call(
+            "wait_dom_stable",
+            {
+                "timeout": int(timeout * 1000),
+                "interval": int(interval * 1000),
+            },
+        )
 
     # ─── JavaScript 执行 ────────────────────────────────────────
 
@@ -99,10 +102,13 @@ class BridgePage:
         return bool(self._call("has_element", {"selector": selector}))
 
     def wait_for_element(self, selector: str, timeout: float = 30.0) -> str:
-        found = self._call("wait_for_selector", {
-            "selector": selector,
-            "timeout": int(timeout * 1000),
-        })
+        found = self._call(
+            "wait_for_selector",
+            {
+                "selector": selector,
+                "timeout": int(timeout * 1000),
+            },
+        )
         if not found:
             raise ElementNotFoundError(selector)
         return "found"
@@ -110,7 +116,46 @@ class BridgePage:
     # ─── 元素操作 ────────────────────────────────────────────────
 
     def click_element(self, selector: str) -> None:
-        self._call("click_element", {"selector": selector})
+        self.evaluate(
+            f"""
+            (() => {{
+                const nodes = Array.from(document.querySelectorAll({json.dumps(selector)}));
+                if (!nodes.length) throw new Error('元素不存在: ' + {json.dumps(selector)});
+                const visible = nodes.find((el) => {{
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width <= 0 || rect.height <= 0) return false;
+                    const style = window.getComputedStyle(el);
+                    return style.display !== 'none' && style.visibility !== 'hidden';
+                }}) || nodes[0];
+                const target = visible.closest("button,[role='button'],a,[tabindex]") || visible;
+                target.scrollIntoView({{block: 'center'}});
+                if (typeof target.focus === 'function') target.focus();
+
+                if (typeof target.click === 'function') {{
+                    target.click();
+                    return;
+                }}
+
+                const rect = target.getBoundingClientRect();
+                const x = rect.left + rect.width / 2;
+                const y = rect.top + rect.height / 2;
+                const pointEl = document.elementFromPoint(x, y);
+                const dispatchTarget =
+                    pointEl && (pointEl === target || target.contains(pointEl))
+                        ? pointEl
+                        : target;
+
+                ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach((t) => {{
+                    dispatchTarget.dispatchEvent(new MouseEvent(t, {{
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: x,
+                        clientY: y,
+                    }}));
+                }});
+            }})()
+            """
+        )
 
     def input_text(self, selector: str, text: str) -> None:
         self._call("input_text", {"selector": selector, "text": text})

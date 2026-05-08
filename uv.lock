@@ -735,6 +735,7 @@ wheels = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -780,6 +781,17 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/79/0c/c16bc93ac2755bac0066a8ecbd2a2931a1735a6fffd99a2b9681c7e83e90/pytweening-1.2.0.tar.gz", hash = "sha256:243318b7736698066c5f362ec5c2b6434ecf4297c3c8e7caa8abfe6af4cac71b", size = 171241, upload-time = "2024-02-20T03:37:56.809Z" }
 
 [[package]]
+=======
+name = "python-socks"
+version = "2.8.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/0b/cd77011c1bc01b76404f7aba07fca18aca02a19c7626e329b40201217624/python_socks-2.8.1.tar.gz", hash = "sha256:698daa9616d46dddaffe65b87db222f2902177a2d2b2c0b9a9361df607ab3687", size = 38909, upload-time = "2026-02-16T05:24:00.745Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/fe/9a58cb6eec633ff6afae150ca53c16f8cc8b65862ccb3d088051efdfceb7/python_socks-2.8.1-py3-none-any.whl", hash = "sha256:28232739c4988064e725cdbcd15be194743dd23f1c910f784163365b9d7be035", size = 55087, upload-time = "2026-02-16T05:23:59.147Z" },
+]
+
+[[package]]
+>>>>>>> official/main
 name = "requests"
 version = "2.32.5"
 source = { registry = "https://pypi.org/simple" }
@@ -954,11 +966,15 @@ name = "xiaohongshu-skills"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+<<<<<<< HEAD
     { name = "pillow" },
     { name = "pyautogui" },
     { name = "pynput" },
     { name = "pyperclip" },
     { name = "python-dotenv" },
+=======
+    { name = "python-socks" },
+>>>>>>> official/main
     { name = "requests" },
     { name = "volcengine-python-sdk", extra = ["ark"] },
     { name = "websockets" },
@@ -982,7 +998,11 @@ requires-dist = [
     { name = "pynput", specifier = ">=1.7.6" },
     { name = "pyperclip", specifier = ">=1.8.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+<<<<<<< HEAD
     { name = "python-dotenv" },
+=======
+    { name = "python-socks", specifier = ">=2.8.1" },
+>>>>>>> official/main
     { name = "requests", specifier = ">=2.28.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
     { name = "volcengine-python-sdk", extras = ["ark"] },

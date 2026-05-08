@@ -215,10 +215,17 @@ class Page:
         box = self.evaluate(
             f"""
             (() => {{
-                const el = document.querySelector({json.dumps(selector)});
-                if (!el) return null;
-                el.scrollIntoView({{block: 'center'}});
-                const rect = el.getBoundingClientRect();
+                const nodes = Array.from(document.querySelectorAll({json.dumps(selector)}));
+                if (!nodes.length) return null;
+                const visible = nodes.find((el) => {{
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width <= 0 || rect.height <= 0) return false;
+                    const style = window.getComputedStyle(el);
+                    return style.display !== 'none' && style.visibility !== 'hidden';
+                }}) || nodes[0];
+                const target = visible.closest("button,[role='button'],a,[tabindex]") || visible;
+                target.scrollIntoView({{block: 'center'}});
+                const rect = target.getBoundingClientRect();
                 return {{x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}};
             }})()
             """
@@ -527,7 +534,9 @@ class Page:
         try:
             doc = self._send_session("DOM.getDocument", {"depth": 0})
             root_id = doc["root"]["nodeId"]
-            query = self._send_session("DOM.querySelector", {"nodeId": root_id, "selector": selector})
+            query = self._send_session(
+                "DOM.querySelector", {"nodeId": root_id, "selector": selector}
+            )
             node_id = query.get("nodeId", 0)
             if not node_id:
                 return b""
